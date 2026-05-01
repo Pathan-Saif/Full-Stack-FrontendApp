@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { FiCalendar, FiEdit2, FiEye, FiUsers } from 'react-icons/fi'
+import { FiCalendar, FiEdit2, FiEye, FiTrash2, FiUsers } from 'react-icons/fi'
 import { formatDate, getProjectStatusColor } from '../../utils/helpers'
 
-export default function ProjectCard({ project, canEdit = false }) {
+export default function ProjectCard({ project, canEdit = false, onDelete }) {
   const members = project.members || project.teamMembers || []
 
   return (
@@ -34,9 +34,16 @@ export default function ProjectCard({ project, canEdit = false }) {
           View
         </Link>
         {canEdit && (
-          <Link to={`/projects/${project.id}/edit`} className="btn-secondary inline-flex items-center justify-center gap-2 text-sm" title="Edit project">
-            <FiEdit2 className="h-4 w-4" />
-          </Link>
+          <>
+            <Link to={`/projects/${project.id}/edit`} className="btn-secondary inline-flex items-center justify-center gap-2 text-sm" title="Edit project">
+              <FiEdit2 className="h-4 w-4" />
+            </Link>
+            {onDelete && (
+              <button type="button" onClick={() => onDelete(project)} className="btn-danger inline-flex items-center justify-center gap-2 text-sm" title="Delete project">
+                <FiTrash2 className="h-4 w-4" />
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

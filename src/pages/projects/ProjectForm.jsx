@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import api from '../../api/axios'
+import { createProject, getProject, PROJECT_STATUSES, updateProject } from '../../api/projects'
 import Loader from '../../components/common/Loader'
 import { getErrorMessage } from '../../utils/helpers'
-
-const unwrap = (payload) => payload?.data?.data ?? payload?.data ?? payload
 
 export default function ProjectForm() {
   const { id } = useParams()
@@ -23,9 +21,8 @@ export default function ProjectForm() {
 
   useEffect(() => {
     if (!isEdit) return
-    api.get(`/projects/${id}`)
-      .then((res) => {
-        const project = unwrap(res)
+    getProject(id)
+      .then((project) => {
         setForm({
           name: project.name || '',
           description: project.description || '',
@@ -48,6 +45,18 @@ export default function ProjectForm() {
       toast.error('Project name is required')
       return
     }
+    if (form.name.trim().length > 200) {
+      toast.error('Project name must be 200 characters or less')
+      return
+    }
+    if (form.description.length > 2000) {
+      toast.error('Description must be 2000 characters or less')
+      return
+    }
+    if (!PROJECT_STATUSES.includes(form.status)) {
+      toast.error('Select a valid project status')
+      return
+    }
 
     setSaving(true)
     try {
@@ -58,8 +67,7 @@ export default function ProjectForm() {
         startDate: form.startDate || null,
         deadline: form.deadline || null,
       }
-      const res = isEdit ? await api.put(`/projects/${id}`, payload) : await api.post('/projects', payload)
-      const saved = unwrap(res)
+      const saved = isEdit ? await updateProject(id, payload) : await createProject(payload)
       toast.success(isEdit ? 'Project updated' : 'Project created')
       navigate(`/projects/${saved.id || id}`)
     } catch (err) {
@@ -81,12 +89,12 @@ export default function ProjectForm() {
 
         <div>
           <label className="label">Project name</label>
-          <input name="name" value={form.name} onChange={handleChange} className="input-field" placeholder="Website redesign" />
+          <input name="name" value={form.name} onChange={handleChange} className="input-field" placeholder="Website redesign" maxLength={200} required />
         </div>
 
         <div>
           <label className="label">Description</label>
-          <textarea name="description" value={form.description} onChange={handleChange} className="input-field min-h-28" placeholder="What is this project about?" />
+          <textarea name="description" value={form.description} onChange={handleChange} className="input-field min-h-28" placeholder="What is this project about?" maxLength={2000} />
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">

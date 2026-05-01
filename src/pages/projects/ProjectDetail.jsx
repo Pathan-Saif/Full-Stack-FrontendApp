@@ -1,43 +1,48 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { FiCalendar, FiEdit2, FiPlus, FiUserPlus, FiUsers } from 'react-icons/fi'
-import api from '../../api/axios'
+import { FiCalendar, FiEdit2, FiPlus, FiTrash2, FiUserMinus, FiUserPlus, FiUsers } from 'react-icons/fi'
+import { addProjectMember, deleteProject, getProject, removeProjectMember } from '../../api/projects'
+import { deleteTask, getProjectTasks } from '../../api/tasks'
+import { getUsers } from '../../api/users'
 import Loader from '../../components/common/Loader'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import TaskCard from '../../components/tasks/TaskCard'
 import { useAuth } from '../../hooks/useAuth'
 import { formatDate, getErrorMessage, getProjectStatusColor } from '../../utils/helpers'
 
-const unwrap = (payload) => payload?.data?.data ?? payload?.data ?? payload
-const listOf = (payload) => {
-  const value = unwrap(payload)
-  return Array.isArray(value) ? value : value?.tasks || value?.content || value?.items || []
-}
-
 export default function ProjectDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [project, setProject] = useState(null)
   const [tasks, setTasks] = useState([])
   const [users, setUsers] = useState([])
   const [memberToAdd, setMemberToAdd] = useState('')
+  const [taskStatus, setTaskStatus] = useState('ALL')
   const [loading, setLoading] = useState(true)
   const [addingMember, setAddingMember] = useState(false)
+  const [memberToRemove, setMemberToRemove] = useState(null)
+  const [taskToDelete, setTaskToDelete] = useState(null)
+  const [removingMember, setRemovingMember] = useState(false)
+  const [deletingTask, setDeletingTask] = useState(false)
+  const [deletingProject, setDeletingProject] = useState(false)
+  const [showDeleteProject, setShowDeleteProject] = useState(false)
 
   const loadProject = useCallback(async () => {
     const [projectRes, tasksRes] = await Promise.all([
-      api.get(`/projects/${id}`),
-      api.get(`/projects/${id}/tasks`),
+      getProject(id),
+      getProjectTasks(id, taskStatus),
     ])
-    setProject(unwrap(projectRes))
-    setTasks(listOf(tasksRes))
-  }, [id])
+    setProject(projectRes)
+    setTasks(tasksRes)
+  }, [id, taskStatus])
 
   useEffect(() => {
     async function load() {
       try {
         const requests = [loadProject()]
-        if (user?.role === 'ADMIN') requests.push(api.get('/users').then((res) => setUsers(listOf(res))))
+        if (user?.role === 'ADMIN') requests.push(getUsers().then(setUsers))
         await Promise.all(requests)
       } catch (err) {
         toast.error(getErrorMessage(err))
@@ -57,7 +62,7 @@ export default function ProjectDetail() {
 
     setAddingMember(true)
     try {
-      await api.post(`/projects/${id}/members/${memberToAdd}`)
+      await addProjectMember(id, memberToAdd)
       toast.success('Member added to project')
       setMemberToAdd('')
       await loadProject()
@@ -65,6 +70,51 @@ export default function ProjectDetail() {
       toast.error(getErrorMessage(err))
     } finally {
       setAddingMember(false)
+    }
+  }
+
+  async function handleRemoveMember() {
+    if (!memberToRemove) return
+
+    setRemovingMember(true)
+    try {
+      const updated = await removeProjectMember(id, memberToRemove.id)
+      setProject(updated)
+      setMemberToRemove(null)
+      toast.success('Member removed from project')
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setRemovingMember(false)
+    }
+  }
+
+  async function handleDeleteProject() {
+    setDeletingProject(true)
+    try {
+      await deleteProject(id)
+      toast.success('Project deleted')
+      navigate('/projects')
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setDeletingProject(false)
+    }
+  }
+
+  async function handleDeleteTask() {
+    if (!taskToDelete) return
+
+    setDeletingTask(true)
+    try {
+      await deleteTask(taskToDelete.id)
+      setTasks((current) => current.filter((task) => task.id !== taskToDelete.id))
+      setTaskToDelete(null)
+      toast.success('Task deleted')
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setDeletingTask(false)
     }
   }
 
@@ -99,6 +149,10 @@ export default function ProjectDetail() {
                 <FiPlus className="h-4 w-4" />
                 Add task
               </Link>
+              <button type="button" onClick={() => setShowDeleteProject(true)} className="btn-danger inline-flex items-center gap-2 text-sm">
+                <FiTrash2 className="h-4 w-4" />
+                Delete
+              </button>
             </div>
           )}
         </div>
@@ -139,8 +193,11 @@ export default function ProjectDetail() {
 
           <div className="mt-4 flex flex-wrap gap-2">
             {members.map((member) => (
-              <span key={member.id} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+              <span key={member.id} className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                 {member.name || member.email}
+                <button type="button" onClick={() => setMemberToRemove(member)} className="text-slate-400 hover:text-red-600" title="Remove member">
+                  <FiUserMinus className="h-3.5 w-3.5" />
+                </button>
               </span>
             ))}
             {!members.length && <span className="text-sm text-slate-500">No members added yet.</span>}
@@ -149,12 +206,54 @@ export default function ProjectDetail() {
       )}
 
       <section>
-        <h3 className="mb-3 font-semibold text-slate-800">Tasks</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-semibold text-slate-800">Tasks</h3>
+          <select value={taskStatus} onChange={(e) => setTaskStatus(e.target.value)} className="input-field sm:w-44">
+            <option value="ALL">All statuses</option>
+            <option value="TODO">To do</option>
+            <option value="IN_PROGRESS">In progress</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
         <div className="grid gap-4 lg:grid-cols-2">
-          {tasks.map((task) => <TaskCard key={task.id} task={task} canEdit={user?.role === 'ADMIN'} />)}
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              canEdit={user?.role === 'ADMIN'}
+              onDelete={user?.role === 'ADMIN' ? setTaskToDelete : undefined}
+            />
+          ))}
         </div>
         {!tasks.length && <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">No tasks in this project yet.</div>}
       </section>
+
+      <ConfirmModal
+        isOpen={Boolean(memberToRemove)}
+        title="Remove member"
+        message={`Remove ${memberToRemove?.name || memberToRemove?.email || 'this member'} from this project?`}
+        loading={removingMember}
+        confirmLabel="Remove"
+        loadingLabel="Removing..."
+        onCancel={() => setMemberToRemove(null)}
+        onConfirm={handleRemoveMember}
+      />
+      <ConfirmModal
+        isOpen={showDeleteProject}
+        title="Delete project"
+        message={`Delete ${project.name}? This cannot be undone.`}
+        loading={deletingProject}
+        onCancel={() => setShowDeleteProject(false)}
+        onConfirm={handleDeleteProject}
+      />
+      <ConfirmModal
+        isOpen={Boolean(taskToDelete)}
+        title="Delete task"
+        message={`Delete ${taskToDelete?.title || 'this task'}? This cannot be undone.`}
+        loading={deletingTask}
+        onCancel={() => setTaskToDelete(null)}
+        onConfirm={handleDeleteTask}
+      />
     </div>
   )
 }

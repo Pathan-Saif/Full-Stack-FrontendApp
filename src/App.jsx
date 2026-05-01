@@ -22,6 +22,7 @@ import ProjectForm   from './pages/projects/ProjectForm'
 // Task Pages
 import MyTasks  from './pages/tasks/MyTasks'
 import TaskForm from './pages/tasks/TaskForm'
+import TaskDetail from './pages/tasks/TaskDetail'
 
 // Error Pages
 import NotFound      from './pages/NotFound'
@@ -77,6 +78,7 @@ export default function App() {
 
         {/* Tasks */}
         <Route path="/tasks/my" element={<MyTasks />} />
+        <Route path="/tasks/:taskId" element={<TaskDetail />} />
 
         {/* Create / Edit Task — ADMIN only */}
         <Route

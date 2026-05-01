@@ -3,16 +3,12 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { FiAlertCircle, FiCheckCircle, FiClock, FiFolder, FiPlus } from 'react-icons/fi'
 import api from '../../api/axios'
+import { getProjects } from '../../api/projects'
+import { unwrapApiResponse } from '../../api/apiResponse'
 import StatCard from '../../components/common/StatCard'
 import Loader from '../../components/common/Loader'
 import ProjectCard from '../../components/projects/ProjectCard'
 import { getErrorMessage } from '../../utils/helpers'
-
-const unwrap = (payload) => payload?.data?.data ?? payload?.data ?? payload
-const listOf = (payload) => {
-  const value = unwrap(payload)
-  return Array.isArray(value) ? value : value?.content || value?.items || []
-}
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null)
@@ -24,10 +20,10 @@ export default function AdminDashboard() {
       try {
         const [statsRes, projectsRes] = await Promise.all([
           api.get('/dashboard/admin'),
-          api.get('/projects'),
+          getProjects(),
         ])
-        setStats(unwrap(statsRes))
-        setProjects(listOf(projectsRes))
+        setStats(unwrapApiResponse(statsRes))
+        setProjects(projectsRes)
       } catch (err) {
         toast.error(getErrorMessage(err))
       } finally {

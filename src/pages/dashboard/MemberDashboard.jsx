@@ -2,16 +2,12 @@ import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { FiCheckCircle, FiClock, FiList, FiAlertCircle } from 'react-icons/fi'
 import api from '../../api/axios'
+import { unwrapApiResponse } from '../../api/apiResponse'
+import { getMyTasks, updateTaskStatus } from '../../api/tasks'
 import StatCard from '../../components/common/StatCard'
 import Loader from '../../components/common/Loader'
 import TaskCard from '../../components/tasks/TaskCard'
 import { getErrorMessage, isOverdue } from '../../utils/helpers'
-
-const unwrap = (payload) => payload?.data?.data ?? payload?.data ?? payload
-const listOf = (payload) => {
-  const value = unwrap(payload)
-  return Array.isArray(value) ? value : value?.content || value?.items || []
-}
 
 export default function MemberDashboard() {
   const [stats, setStats] = useState(null)
@@ -23,10 +19,10 @@ export default function MemberDashboard() {
       try {
         const [statsRes, tasksRes] = await Promise.all([
           api.get('/dashboard/member'),
-          api.get('/tasks/my'),
+          getMyTasks(),
         ])
-        setStats(unwrap(statsRes))
-        setTasks(listOf(tasksRes))
+        setStats(unwrapApiResponse(statsRes))
+        setTasks(tasksRes)
       } catch (err) {
         toast.error(getErrorMessage(err))
       } finally {
@@ -38,8 +34,7 @@ export default function MemberDashboard() {
 
   async function handleStatusChange(task, status) {
     try {
-      const { data } = await api.patch(`/tasks/${task.id}/status`, { status })
-      const updated = data?.data || data || { ...task, status }
+      const updated = await updateTaskStatus(task.id, status)
       setTasks((current) => current.map((item) => item.id === task.id ? { ...item, ...updated, status } : item))
       toast.success('Task updated')
     } catch (err) {

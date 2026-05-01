@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { FiSearch } from 'react-icons/fi'
-import api from '../../api/axios'
+import { getMyTasks, updateTaskStatus } from '../../api/tasks'
 import Loader from '../../components/common/Loader'
 import TaskCard from '../../components/tasks/TaskCard'
 import { getErrorMessage } from '../../utils/helpers'
-
-const listOf = (payload) => {
-  const value = payload?.data?.data ?? payload?.data ?? payload
-  return Array.isArray(value) ? value : value?.content || value?.items || []
-}
 
 export default function MyTasks() {
   const [tasks, setTasks] = useState([])
@@ -18,16 +13,16 @@ export default function MyTasks() {
   const [status, setStatus] = useState('ALL')
 
   useEffect(() => {
-    api.get('/tasks/my')
-      .then((res) => setTasks(listOf(res)))
+    setLoading(true)
+    getMyTasks(status)
+      .then(setTasks)
       .catch((err) => toast.error(getErrorMessage(err)))
       .finally(() => setLoading(false))
-  }, [])
+  }, [status])
 
   async function handleStatusChange(task, nextStatus) {
     try {
-      const { data } = await api.patch(`/tasks/${task.id}/status`, { status: nextStatus })
-      const updated = data?.data || { ...task, status: nextStatus }
+      const updated = await updateTaskStatus(task.id, nextStatus)
       setTasks((current) => current.map((item) => item.id === task.id ? { ...item, ...updated } : item))
       toast.success('Task status updated')
     } catch (err) {

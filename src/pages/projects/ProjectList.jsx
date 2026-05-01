@@ -2,30 +2,44 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { FiPlus, FiSearch } from 'react-icons/fi'
-import api from '../../api/axios'
+import { deleteProject, getProjects } from '../../api/projects'
 import ProjectCard from '../../components/projects/ProjectCard'
 import Loader from '../../components/common/Loader'
+import ConfirmModal from '../../components/common/ConfirmModal'
 import { useAuth } from '../../hooks/useAuth'
 import { getErrorMessage } from '../../utils/helpers'
-
-const listOf = (payload) => {
-  const value = payload?.data?.data ?? payload?.data ?? payload
-  return Array.isArray(value) ? value : value?.content || value?.items || []
-}
 
 export default function ProjectList() {
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const [projectToDelete, setProjectToDelete] = useState(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState('ALL')
   const { user } = useAuth()
 
   useEffect(() => {
-    api.get('/projects')
-      .then((res) => setProjects(listOf(res)))
+    getProjects()
+      .then(setProjects)
       .catch((err) => toast.error(getErrorMessage(err)))
       .finally(() => setLoading(false))
   }, [])
+
+  async function handleDeleteProject() {
+    if (!projectToDelete) return
+
+    setDeleting(true)
+    try {
+      await deleteProject(projectToDelete.id)
+      setProjects((current) => current.filter((project) => project.id !== projectToDelete.id))
+      setProjectToDelete(null)
+      toast.success('Project deleted')
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setDeleting(false)
+    }
+  }
 
   if (loading) return <Loader />
 
@@ -64,9 +78,25 @@ export default function ProjectList() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((project) => <ProjectCard key={project.id} project={project} canEdit={user?.role === 'ADMIN'} />)}
+        {filtered.map((project) => (
+          <ProjectCard
+            key={project.id}
+            project={project}
+            canEdit={user?.role === 'ADMIN'}
+            onDelete={user?.role === 'ADMIN' ? setProjectToDelete : undefined}
+          />
+        ))}
       </div>
       {!filtered.length && <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-500">No projects found.</div>}
+
+      <ConfirmModal
+        isOpen={Boolean(projectToDelete)}
+        title="Delete project"
+        message={`Delete ${projectToDelete?.name || 'this project'}? This cannot be undone.`}
+        loading={deleting}
+        onCancel={() => setProjectToDelete(null)}
+        onConfirm={handleDeleteProject}
+      />
     </div>
   )
 }

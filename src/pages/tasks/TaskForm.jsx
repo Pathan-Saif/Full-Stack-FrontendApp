@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import api from '../../api/axios'
+import { getProject } from '../../api/projects'
+import { createProjectTask, getTask, TASK_PRIORITIES, TASK_STATUSES, updateTask } from '../../api/tasks'
 import Loader from '../../components/common/Loader'
 import { getErrorMessage } from '../../utils/helpers'
-
-const unwrap = (payload) => payload?.data?.data ?? payload?.data ?? payload
 
 export default function TaskForm() {
   const { projectId, taskId } = useParams()
@@ -30,14 +29,12 @@ export default function TaskForm() {
         let currentProjectId = projectId
 
         if (isEdit) {
-          const taskRes = await api.get(`/tasks/${taskId}`)
-          task = unwrap(taskRes)
+          task = await getTask(taskId)
           currentProjectId = task.projectId
         }
 
         if (currentProjectId) {
-          const projectRes = await api.get(`/projects/${currentProjectId}`)
-          const project = unwrap(projectRes)
+          const project = await getProject(currentProjectId)
           setMembers((project.members || []).filter((user) => !user.role || user.role === 'MEMBER'))
         }
 
@@ -71,6 +68,22 @@ export default function TaskForm() {
       toast.error('Task title is required')
       return
     }
+    if (form.title.trim().length > 200) {
+      toast.error('Task title must be 200 characters or less')
+      return
+    }
+    if (form.description.length > 2000) {
+      toast.error('Description must be 2000 characters or less')
+      return
+    }
+    if (!TASK_PRIORITIES.includes(form.priority)) {
+      toast.error('Select a valid priority')
+      return
+    }
+    if (!TASK_STATUSES.includes(form.status)) {
+      toast.error('Select a valid task status')
+      return
+    }
 
     setSaving(true)
     try {
@@ -81,8 +94,7 @@ export default function TaskForm() {
         dueDate: form.dueDate || null,
         assignedToId: form.assignedToId ? Number(form.assignedToId) : null,
       }
-      const res = isEdit ? await api.put(`/tasks/${taskId}`, payload) : await api.post(`/projects/${projectId}/tasks`, payload)
-      const saved = unwrap(res)
+      const saved = isEdit ? await updateTask(taskId, payload) : await createProjectTask(projectId, payload)
       toast.success(isEdit ? 'Task updated' : 'Task created')
       navigate(projectId ? `/projects/${projectId}` : `/projects/${saved.projectId || saved.project?.id || ''}`)
     } catch (err) {
@@ -104,12 +116,12 @@ export default function TaskForm() {
 
         <div>
           <label className="label">Task title</label>
-          <input name="title" value={form.title} onChange={handleChange} className="input-field" placeholder="Prepare sprint plan" />
+          <input name="title" value={form.title} onChange={handleChange} className="input-field" placeholder="Prepare sprint plan" maxLength={200} required />
         </div>
 
         <div>
           <label className="label">Description</label>
-          <textarea name="description" value={form.description} onChange={handleChange} className="input-field min-h-28" placeholder="Task details" />
+          <textarea name="description" value={form.description} onChange={handleChange} className="input-field min-h-28" placeholder="Task details" maxLength={2000} />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">

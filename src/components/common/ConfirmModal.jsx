@@ -1,6 +1,6 @@
 import { FiAlertTriangle } from 'react-icons/fi'
 
-export default function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, loading }) {
+export default function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, loading, confirmLabel = 'Delete', loadingLabel = 'Deleting...' }) {
   if (!isOpen) return null
 
   return (
@@ -28,7 +28,7 @@ export default function ConfirmModal({ isOpen, title, message, onConfirm, onCanc
             disabled={loading}
             className="btn-danger text-sm"
           >
-            {loading ? 'Deleting...' : 'Delete'}
+            {loading ? loadingLabel : confirmLabel}
           </button>
         </div>
       </div>

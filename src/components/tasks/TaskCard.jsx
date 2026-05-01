@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import { FiCalendar, FiEdit2, FiUser } from 'react-icons/fi'
+import { FiCalendar, FiEdit2, FiEye, FiTrash2, FiUser } from 'react-icons/fi'
 import TaskStatusBadge from './TaskStatusBadge'
 import { formatDate, getPriorityColor, isOverdue } from '../../utils/helpers'
 
-export default function TaskCard({ task, canEdit = false, onStatusChange }) {
+export default function TaskCard({ task, canEdit = false, onStatusChange, onDelete }) {
   const assignedTo = task.assignedTo || task.assignee || task.user
 
   return (
@@ -13,11 +13,23 @@ export default function TaskCard({ task, canEdit = false, onStatusChange }) {
           <h3 className="font-semibold text-slate-800">{task.title}</h3>
           {task.description && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{task.description}</p>}
         </div>
-        {canEdit && (
-          <Link to={`/tasks/${task.id}/edit`} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Edit task">
-            <FiEdit2 className="h-4 w-4" />
+        <div className="flex shrink-0 items-center gap-1">
+          <Link to={`/tasks/${task.id}`} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="View task">
+            <FiEye className="h-4 w-4" />
           </Link>
-        )}
+          {canEdit && (
+            <>
+              <Link to={`/tasks/${task.id}/edit`} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Edit task">
+                <FiEdit2 className="h-4 w-4" />
+              </Link>
+              {onDelete && (
+                <button type="button" onClick={() => onDelete(task)} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600" title="Delete task">
+                  <FiTrash2 className="h-4 w-4" />
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
